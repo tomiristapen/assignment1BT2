@@ -44,7 +44,7 @@
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/your-username/crypto-news-aggregator.git
+git clone https://github.com/tomiristapen/assignment1BT2.git
 cd assignment1BT2
 ```
 **2. Create a .env file and add your API keys**

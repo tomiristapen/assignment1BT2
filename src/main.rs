@@ -47,11 +47,11 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .route("/", web::get().to(get_news))  // Set "/" to show news
+            .route("/", web::get().to(get_news))  
             .route("/news", web::get().to(get_news))
             .route("/info", web::get().to(get_info))
             .route("/prices", web::get().to(get_prices))
-            .service(Files::new("/static", "./static").index_file("index.html"))
+            .service(Files::new("/static", "./static"))
     })
     .bind("127.0.0.1:8080")?
     .run()
@@ -82,7 +82,6 @@ async fn get_news(query: web::Query<Query>) -> Result<HttpResponse> {
                     Ok(parsed) => {
                         let mut news_html = String::new();
 
-                        // Header section
                         if let Some(symbol) = &query.symbol {
                             news_html += &format!(
                                 "<h2>{} Crypto News</h2>
@@ -95,7 +94,6 @@ async fn get_news(query: web::Query<Query>) -> Result<HttpResponse> {
                             news_html += "<h2 class=\"mb-4\">Latest Crypto News</h2>";
                         }
 
-                        // Deduplication
                         use std::collections::HashSet;
                         let mut seen_titles = HashSet::new();
                         let mut count = 0;
@@ -135,7 +133,6 @@ async fn get_news(query: web::Query<Query>) -> Result<HttpResponse> {
                         }
                         news_html += "</div>";
 
-                        // Inject into template
                         let template = fs::read_to_string("./static/news_st.html").unwrap_or_default();
                         let final_html = template.replace("<!-- News will be populated here from the backend -->", &news_html);
 
@@ -161,7 +158,6 @@ async fn get_info(query: web::Query<Query>) -> impl Responder {
     let symbol = query.symbol.clone().unwrap_or_default().to_uppercase();
 
     if symbol.is_empty() {
-        // Render the `info.html` page with an empty `#info-container`
         let template = fs::read_to_string("./static/info.html")
             .unwrap_or_else(|_| "Error loading the page.".to_string());
 
@@ -208,11 +204,9 @@ async fn get_info(query: web::Query<Query>) -> impl Responder {
                                 coin.urls.website.join(", ")
                             );
 
-                            // Read the static `info.html` template
                             let template = fs::read_to_string("./static/info.html")
                                 .unwrap_or_else(|_| "Error loading the page.".to_string());
 
-                            // Replace the placeholder `{info_html}` with the dynamically generated content
                             let final_html = template.replace("{info_html}", &info_html);
 
                             HttpResponse::Ok().content_type("text/html").body(final_html)
@@ -263,7 +257,7 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
                 let mut price_html = String::new();
 
                 if let Some(symbol) = &query.symbol {
-                    // Single coin (search)
+                    // single coin search
                     let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
                     if let Some(data) = parsed.get("data").and_then(|d| d.get(symbol.to_uppercase())) {
                         let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -286,7 +280,7 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
                         price_html += "<p class='text-danger'>No price data found for the given symbol.</p>";
                     }
                 } else {
-                    // Top 12 coins
+                    // top 12 coins
                     let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
                     if let Some(array) = parsed.get("data").and_then(|d| d.as_array()) {
                         for (index, item) in array.iter().enumerate() {

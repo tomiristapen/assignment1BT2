@@ -216,7 +216,7 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
             symbol.to_uppercase()
         )
     } else {
-        "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=10".to_string()
+        "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=12".to_string()
     };
 
     let res = client
@@ -232,9 +232,9 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
                 let mut price_html = String::new();
 
                 if let Some(symbol) = &query.symbol {
+                    // Single coin (search)
                     let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
                     if let Some(data) = parsed.get("data").and_then(|d| d.get(symbol.to_uppercase())) {
-                        // Safely extract the name and price
                         let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("");
                         let price = data["quote"]["USD"]["price"].as_f64().unwrap_or(0.0);
 
@@ -255,9 +255,10 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
                         price_html += "<p class='text-danger'>No price data found for the given symbol.</p>";
                     }
                 } else {
+                    // Top 12 coins
                     let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
                     if let Some(array) = parsed.get("data").and_then(|d| d.as_array()) {
-                        for item in array {
+                        for (index, item) in array.iter().enumerate() {
                             let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
                             let symbol = item.get("symbol").and_then(|v| v.as_str()).unwrap_or("");
                             let price = item["quote"]["USD"]["price"].as_f64().unwrap_or(0.0);
@@ -266,12 +267,13 @@ async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
                                 r#"<div class="col-md-4 mb-4">
                                         <div class="card text-center shadow-sm">
                                             <div class="card-body">
-                                                <h5 class="card-title">{name} ({symbol})</h5>
+                                                <h5 class="card-title">{rank}. {name} ({symbol})</h5>
                                                 <p class="card-text display-6">${:.2}</p>
                                             </div>
                                         </div>
                                     </div>"#,
                                 price,
+                                rank = index + 1,
                                 name = name,
                                 symbol = symbol
                             );

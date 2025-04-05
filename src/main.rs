@@ -50,6 +50,7 @@ async fn main() -> std::io::Result<()> {
             .route("/", web::get().to(get_news))  // Set "/" to show news
             .route("/news", web::get().to(get_news))
             .route("/info", web::get().to(get_info))
+            .route("/prices", web::get().to(get_prices))
             .service(Files::new("/static", "./static").index_file("index.html"))
     })
     .bind("127.0.0.1:8080")?
@@ -202,5 +203,92 @@ async fn get_info(query: web::Query<Query>) -> impl Responder {
             eprintln!("Error sending request: {}", err);
             HttpResponse::InternalServerError().body("Request error")
         }
+    }
+}
+
+async fn get_prices(query: web::Query<Query>) -> Result<HttpResponse> {
+    let api_key = env::var("CMC_API_KEY").unwrap_or_else(|_| "".to_string());
+    let client = reqwest::Client::new();
+
+    let url = if let Some(symbol) = &query.symbol {
+        format!(
+            "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={}",
+            symbol.to_uppercase()
+        )
+    } else {
+        "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=10".to_string()
+    };
+
+    let res = client
+        .get(&url)
+        .header("X-CMC_PRO_API_KEY", api_key)
+        .send()
+        .await;
+
+    match res {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                let response_text = resp.text().await.unwrap_or_default();
+                let mut price_html = String::new();
+
+                if let Some(symbol) = &query.symbol {
+                    let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
+                    if let Some(data) = parsed.get("data").and_then(|d| d.get(symbol.to_uppercase())) {
+                        // Safely extract the name and price
+                        let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let price = data["quote"]["USD"]["price"].as_f64().unwrap_or(0.0);
+
+                        price_html += &format!(
+                            r#"<div class="col-md-4 mb-4">
+                                    <div class="card text-center shadow-sm">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{name} ({symbol})</h5>
+                                            <p class="card-text display-6">${:.2}</p>
+                                        </div>
+                                    </div>
+                                </div>"#,
+                            price,
+                            name = name,
+                            symbol = symbol.to_uppercase()
+                        );
+                    } else {
+                        price_html += "<p class='text-danger'>No price data found for the given symbol.</p>";
+                    }
+                } else {
+                    let parsed: serde_json::Value = serde_json::from_str(&response_text).unwrap_or_default();
+                    if let Some(array) = parsed.get("data").and_then(|d| d.as_array()) {
+                        for item in array {
+                            let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                            let symbol = item.get("symbol").and_then(|v| v.as_str()).unwrap_or("");
+                            let price = item["quote"]["USD"]["price"].as_f64().unwrap_or(0.0);
+
+                            price_html += &format!(
+                                r#"<div class="col-md-4 mb-4">
+                                        <div class="card text-center shadow-sm">
+                                            <div class="card-body">
+                                                <h5 class="card-title">{name} ({symbol})</h5>
+                                                <p class="card-text display-6">${:.2}</p>
+                                            </div>
+                                        </div>
+                                    </div>"#,
+                                price,
+                                name = name,
+                                symbol = symbol
+                            );
+                        }
+                    } else {
+                        price_html += "<p class='text-danger'>No top cryptocurrency data available.</p>";
+                    }
+                }
+
+                let template = fs::read_to_string("./static/prices.html").unwrap_or_default();
+                let final_html = template.replace("<!-- Prices will be populated here from the backend -->", &price_html);
+
+                Ok(HttpResponse::Ok().content_type("text/html").body(final_html))
+            } else {
+                Ok(HttpResponse::InternalServerError().body("Failed to fetch price data"))
+            }
+        }
+        Err(_) => Ok(HttpResponse::InternalServerError().body("Request error")),
     }
 }

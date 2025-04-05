@@ -25,7 +25,18 @@
 
 ##  **Screenshots**
 
-> ![Alt text](image.png)
+>
+
+![Снимок экрана 2025-04-05 150725](https://github.com/user-attachments/assets/d7f7c3f4-1c6e-442c-846f-da6f3c9eb3c3)
+
+![image2](https://github.com/user-attachments/assets/273a30e4-bce8-4942-b8b9-de5adf93b51c)
+
+![image3](https://github.com/user-attachments/assets/252d1197-da20-4974-bc78-e367e0687b91)
+
+![image4](https://github.com/user-attachments/assets/6843331d-aed6-475a-9084-4d494cab47e9)
+
+![image5](https://github.com/user-attachments/assets/816bb6a0-eb80-44ac-b6d1-b713dd8987b1)
+
 
 ---
 
@@ -35,3 +46,20 @@
 ```bash
 git clone https://github.com/your-username/crypto-news-aggregator.git
 cd crypto-news-aggregator
+```
+**2. Create a .env file and add your API keys**
+```bash
+NEWSDATA_API_KEY=your_newsdata_api_key
+CMC_API_KEY=your_coinmarketcap_api_key
+```
+
+**3. Run the server**
+```bash
+cargo run
+```
+
+**4. Open in browser**
+```bash
+http://127.0.0.1:8080
+```
+

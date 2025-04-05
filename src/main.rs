@@ -82,30 +82,60 @@ async fn get_news(query: web::Query<Query>) -> Result<HttpResponse> {
                     Ok(parsed) => {
                         let mut news_html = String::new();
 
+                        // Header section
                         if let Some(symbol) = &query.symbol {
                             news_html += &format!(
                                 "<h2>{} Crypto News</h2>
                                  <form action=\"/news\" method=\"get\">
-                                    <button type=\"submit\" class=\"btn btn-secondary mb-4\">Back to General News</button>
+                                     <button type=\"submit\" class=\"btn btn-secondary mb-4\">Back to General News</button>
                                  </form>",
                                 symbol.to_uppercase()
                             );
                         } else {
-                            news_html += "<h2>Latest Crypto News</h2>";
+                            news_html += "<h2 class=\"mb-4\">Latest Crypto News</h2>";
                         }
 
-                        news_html += "<ul>";
-                        for article in parsed.results.iter().take(10) {
+                        // Deduplication
+                        use std::collections::HashSet;
+                        let mut seen_titles = HashSet::new();
+                        let mut count = 0;
+
+                        news_html += "<div class='row'>";
+                        for article in &parsed.results {
+                            let normalized_title = article.title.trim().to_lowercase();
+                            if seen_titles.contains(&normalized_title) {
+                                continue;
+                            }
+
+                            seen_titles.insert(normalized_title);
+                            count += 1;
+
                             news_html += &format!(
-                                "<li><a href=\"{}\">{}</a><br><small>{} | Source: {}</small></li><br>",
-                                article.link,
-                                article.title,
-                                article.pubDate,
-                                article.source_url.clone().unwrap_or("Unknown".to_string())
+                                r#"<div class="col-12 mb-4">
+                                        <div class="card shadow-sm">
+                                            <div class="card-body">
+                                                <h5 class="card-title mb-2">
+                                                    <a href="{link}" target="_blank" class="text-decoration-none">{title}</a>
+                                                </h5>
+                                                <p class="card-text">
+                                                    <small class="text-muted">{date} | Source: {source}</small>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>"#,
+                                link = article.link,
+                                title = article.title,
+                                date = article.pubDate,
+                                source = article.source_url.clone().unwrap_or("Unknown".to_string())
                             );
-                        }
-                        news_html += "</ul>";
 
+                            if count >= 10 {
+                                break;
+                            }
+                        }
+                        news_html += "</div>";
+
+                        // Inject into template
                         let template = fs::read_to_string("./static/news_st.html").unwrap_or_default();
                         let final_html = template.replace("<!-- News will be populated here from the backend -->", &news_html);
 
@@ -120,6 +150,7 @@ async fn get_news(query: web::Query<Query>) -> Result<HttpResponse> {
         Err(_) => Ok(HttpResponse::InternalServerError().body("Request error")),
     }
 }
+
 
 async fn get_info(query: web::Query<Query>) -> impl Responder {
     let api_key = env::var("CMC_API_KEY").unwrap_or_else(|_| {

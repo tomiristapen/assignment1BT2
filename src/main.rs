@@ -134,7 +134,7 @@ async fn get_info(query: web::Query<Query>) -> impl Responder {
             .unwrap_or_else(|_| "Error loading the page.".to_string());
 
         let final_html = template.replace(
-            "<div id=\"info-container\" class=\"mt-4\">\n            <!-- Information will be populated here from the backend -->\n        </div>",
+            "{info_html}",
             "<div id=\"info-container\" class=\"mt-4\"></div>",
         );
 
@@ -180,11 +180,8 @@ async fn get_info(query: web::Query<Query>) -> impl Responder {
                             let template = fs::read_to_string("./static/info.html")
                                 .unwrap_or_else(|_| "Error loading the page.".to_string());
 
-                            // Replace the placeholder with the dynamically generated content
-                            let final_html = template.replace(
-                                "<div id=\"info-container\" class=\"mt-4\">\n            <!-- Information will be populated here from the backend -->\n        </div>",
-                                &format!("<div id=\"info-container\" class=\"mt-4\">{}</div>", info_html),
-                            );
+                            // Replace the placeholder `{info_html}` with the dynamically generated content
+                            let final_html = template.replace("{info_html}", &info_html);
 
                             HttpResponse::Ok().content_type("text/html").body(final_html)
                         } else {
